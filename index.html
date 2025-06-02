@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Unknown - Sandbox Game</title>
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background-color: #6b9ded;
+      cursor: none;
+    }
+    canvas {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <script type="module">
+    import * as THREE from 'https://cdn.skypack.dev/three@0.160.0';
+    import { GLTFLoader } from 'https://cdn.skypack.dev/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
+
+    let camera, scene, renderer;
+    let player, controls;
+    let isThirdPerson = false;
+
+    const keys = {};
+    const clock = new THREE.Clock();
+
+    init();
+    animate();
+
+    function init() {
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color('#6b9ded');
+
+      camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      document.body.appendChild(renderer.domElement);
+
+      const light = new THREE.HemisphereLight(0xffffff, 0x444444);
+      light.position.set(0, 200, 0);
+      scene.add(light);
+
+      // Load player
+      const loader = new GLTFLoader();
+      loader.load('/models/player/player.glb', gltf => {
+        player = gltf.scene;
+        player.position.set(0, 0, 0);
+        scene.add(player);
+        updateCamera();
+      });
+
+      // Create 32x32 ground
+      loader.load('/models/blocks/ground/ground.glb', gltf => {
+        const groundModel = gltf.scene;
+        for (let x = -16; x < 16; x++) {
+          for (let z = -16; z < 16; z++) {
+            const block = groundModel.clone();
+            block.position.set(x, -1, z);
+            scene.add(block);
+          }
+        }
+      });
+
+      document.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
+      document.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+
+      document.addEventListener('keydown', e => {
+        if (e.key.toLowerCase() === 'p') {
+          isThirdPerson = !isThirdPerson;
+          updateCamera();
+        }
+      });
+
+      document.addEventListener('mousemove', e => {
+        const movementX = e.movementX || 0;
+        player.rotation.y -= movementX * 0.002;
+      });
+
+      window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+    }
+
+    function updateCamera() {
+      if (player) {
+        if (isThirdPerson) {
+          camera.position.set(player.position.x - 2 * Math.sin(player.rotation.y), 2, player.position.z - 2 * Math.cos(player.rotation.y));
+        } else {
+          camera.position.set(player.position.x, player.position.y + 1.5, player.position.z);
+        }
+        camera.lookAt(player.position.x, player.position.y + 1.5, player.position.z);
+      }
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const delta = clock.getDelta();
+      if (player) {
+        const speed = 5 * delta;
+
+        if (keys['w']) player.position.z -= speed * Math.cos(player.rotation.y);
+        if (keys['s']) player.position.z += speed * Math.cos(player.rotation.y);
+        if (keys['a']) player.position.x -= speed * Math.sin(player.rotation.y);
+        if (keys['d']) player.position.x += speed * Math.sin(player.rotation.y);
+
+        if (keys['arrowup'] || keys['i']) player.rotation.x += 0.01;
+        if (keys['arrowdown'] || keys['k']) player.rotation.x -= 0.01;
+        if (keys['arrowleft'] || keys['j']) player.rotation.y += 0.01;
+        if (keys['arrowright'] || keys['l']) player.rotation.y -= 0.01;
+
+        updateCamera();
+      }
+      renderer.render(scene, camera);
+    }
+  </script>
+</body>
+</html>
